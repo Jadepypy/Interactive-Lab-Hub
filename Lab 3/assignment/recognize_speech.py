@@ -15,7 +15,7 @@ def record_and_recognize(
     blocksize=8000,
     silence_threshold=500,   # Adjust depending on mic sensitivity
     silence_duration=1.5,    # seconds of silence before auto-stop
-    max_duration=10.0         # hard limit (optional)
+    max_duration=5.0         # hard limit (optional)
 ):
     """
     Record user's speech and stop automatically after a few seconds of silence.
