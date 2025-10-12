@@ -59,39 +59,22 @@ def record_and_recognize(
             channels=1,
             callback=callback,
         ):
+            rec = KaldiRecognizer(model, samplerate)
             while True:
                 data = q.get()
-                if dump_fn:
-                    dump_fn.write(data)
-
-                # --- detect silence using RMS energy ---
-                audio_block = np.frombuffer(data, dtype=np.int16)
-                volume_norm = np.linalg.norm(audio_block) / len(audio_block)
-                is_silent = volume_norm < silence_threshold
-
-                # feed to recognizer
                 if rec.AcceptWaveform(data):
-                    result = json.loads(rec.Result()).get("text", "").strip()
-                    if result:
-                        results.append(result)
-                        print(f"✅ Recognized: {result}")
+                    print(rec.Result())
                 else:
-                    partial = json.loads(rec.PartialResult()).get("partial", "")
-                    if partial:
-                        print(f"…Partial: {partial}", end="\r")
-
-                # silence tracking
-                if is_silent:
-                    if silence_start is None:
-                        silence_start = time.time()
-                    elif time.time() - silence_start > silence_duration:
-                        print("\n🤫 Silence detected. Stopping.")
-                        break
-                else:
-                    silence_start = None  # reset if speech resumes
+                    print(rec.PartialResult())
+                if dump_fn is not None:
+                    dump_fn.write(data)
 
                 if time.time() - start_time > max_duration:
                     print("\n⏰ Max duration reached. Stopping.")
+                    # assign to results and return as list of strings
+                    last_result = json.loads(rec.FinalResult()).get("text", "").strip()
+                    if last_result:
+                        results.append(last_result)
                     break
 
     except KeyboardInterrupt:
