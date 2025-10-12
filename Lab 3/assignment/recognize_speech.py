@@ -27,7 +27,7 @@ def record_and_recognize(
     def callback(indata, frames, time_info, status):
         if status:
             print(status, file=sys.stderr)
-        q.put(indata.copy())
+        q.put(bytes(indata))
 
     # Initialize device and sample rate
     if samplerate is None:
