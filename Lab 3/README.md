@@ -245,7 +245,10 @@ Storyboard and/or use a Verplank diagram to design a speech-enabled device. (Stu
 
 Write out what you imagine the dialogue to be. Use cards, post-its, or whatever method helps you develop alternatives or group responses. 
 
-* User: "{{Pet name}} is "
+* User: "{{Pet name}} is {{mood}}"
+* Device: "{{Pet name}} is {{mood}}"
+* or if the mood is not recognized:
+  * Device: "I didn't catch that."
 
 
 ### Acting out the dialogue
@@ -260,10 +263,6 @@ In the [demo directory](./demo), you will find an example Wizard of Oz project. 
 \*\***Describe if the dialogue seemed different than what you imagined, or when acted out, when it was wizarded, and how.**\*\*
 
 # Lab 3 Part 2
-
-For Part 2, you will redesign the interaction with the speech-enabled device using the data collected, as well as feedback from part 1.
-
-## Prep for Part 2
 
 1. What are concrete things that could use improvement in the design of your device? For example: wording, timing, anticipation of misunderstandings...
 
