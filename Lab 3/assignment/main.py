@@ -1,6 +1,9 @@
 import subprocess
 from flask import Flask, render_template_string, request
 from recognize_speech import record_and_recognize
+import sys
+sys.stdout.reconfigure(encoding='utf-8')
+
 app = Flask(__name__)
 
 MOODS = {
