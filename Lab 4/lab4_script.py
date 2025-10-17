@@ -184,11 +184,8 @@ def joystick():
         return False
 
 def prox_sensor():
-    distance_mm = oProx.get_distance()
-    if distance_mm == 0:  # no valid reading
-        return False
-    distance_cm = distance_mm / 10.0
-    return distance_cm <= 15.0
+    val = oProx.get_proximity()
+    return val <= 10.0
 
 
 def light_sensor():
@@ -301,7 +298,6 @@ while True:
             draw_hp_bar(hp)
         else:
             display_text("SAFE.")
-
     if hp == 0:
             display("skeleton.png")
 
