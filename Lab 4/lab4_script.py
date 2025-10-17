@@ -219,7 +219,6 @@ while True:
 
     # 0 = lightning, 1= fireball, 2 = earthquake, 3 = slime
     if mpr121[0].value:
-        display_text("INCOMING")
         display("lightning.png")
         start_time = time.time()
         trigger = False
@@ -234,12 +233,8 @@ while True:
         if not trigger:
             hp -= 1
             draw_hp_bar(hp)
-            display_text("STRUCK")
-        else:
-            display_text("SAFE.")
 
     if mpr121[1].value:
-        display_text("INCOMING")
         display("fireball.png")
         start_time = time.time()
         trigger = False
@@ -254,12 +249,8 @@ while True:
         if not trigger:
             hp -= 1
             draw_hp_bar(hp)
-            display_text("BURNED")
-        else:
-            display_text("SAFE.")
 
     if mpr121[2].value:
-        display_text("INCOMING")
         display("earthquake.png")
         start_time = time.time()
         trigger = False
@@ -270,16 +261,12 @@ while True:
             if prox_sensor():
                 trigger = True
                 display("victory.png")
-                display_text("CRUSHED")
                 break
         if not trigger:
             hp -= 1
             draw_hp_bar(hp)
-        else:
-            display_text("SAFE.")
 
     if mpr121[3].value:
-        display_text("INCOMING")
         display("slime.png")
         start_time = time.time()
         trigger = False
@@ -290,14 +277,12 @@ while True:
             if rotary():
                 trigger = True
                 display("victory.png")
-                display_text("SLIMED")
                 break
 
         if not trigger:
             hp -= 1
             draw_hp_bar(hp)
-        else:
-            display_text("SAFE.")
+
     if hp == 0:
             display("skeleton.png")
 
