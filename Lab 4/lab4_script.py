@@ -91,14 +91,14 @@ oled = adafruit_ssd1306.SSD1306_I2C(128, 32, i2c)
 oled.fill(0)
 oled.show()
 
-seesaw_product = (seesaw.get_version() >> 16) & 0xFFFF
+#seesaw_product = (seesaw.get_version() >> 16) & 0xFFFF
 
-seesaw.pin_mode(24, seesaw.INPUT_PULLUP)
-button = digitalio.DigitalIO(seesaw, 24)
-button_held = False
+#seesaw.pin_mode(24, seesaw.INPUT_PULLUP)
+#button = digitalio.DigitalIO(seesaw, 24)
+#button_held = False
 
-encoder = rotaryio.IncrementalEncoder(seesaw)
-last_position = -encoder.position
+#encoder = rotaryio.IncrementalEncoder(seesaw)
+#last_position = -encoder.position
 
 # initialize capacity twizzer
 mpr121 = adafruit_mpr121.MPR121(i2c, address=0x5A)
