@@ -173,7 +173,6 @@ def display_text(text: str):
 
 def joystick():
     # if |x - 512| + |y - 512| > 200 return True
-    myJoystick.read()
     x = myJoystick.horizontal
     y = myJoystick.vertical
     if abs(x - 512) + abs(y - 512) > 200:
@@ -309,4 +308,3 @@ while True:
     if hp == 0:
             display("skeleton.png")
 
-    print(hp)
