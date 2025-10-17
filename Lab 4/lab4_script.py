@@ -70,20 +70,20 @@ draw = ImageDraw.Draw(image)
 draw.rectangle((0, 0, width, height), outline=0, fill=(0, 0, 0))
 disp.image(image)
 
-# prox setup
-ToF = qwiic.QwiicVL53L1X()
-
 # light setup
 i2c = busio.I2C(board.SCL, board.SDA)
-apds = APDS9960(i2c)
-apds.enable_color = True
+# apds = APDS9960(i2c)
+# apds.enable_color = True
+
+# prox setup
+ToF = qwiic.QwiicVL53L1X(i2c)
 
 # joystick setup
 myJoystick = qwiic_joystick.QwiicJoystick(i2c)
 myJoystick.begin()
 
 # rot setup
-seesaw = seesaw.Seesaw(i2c, addr=0x36)
+# seesaw = seesaw.Seesaw(i2c, addr=0x36)
 
 # oled setup
 oled = adafruit_ssd1306.SSD1306_I2C(128, 32, i2c)
@@ -189,6 +189,7 @@ def prox_sensor():
         return False
 
 def light_sensor():
+    return False
     # wait for color data to be ready
     while not apds.color_data_ready:
         time.sleep(0.005)
@@ -199,6 +200,7 @@ def light_sensor():
         return False
 
 def rotary():
+    return False
     # negate the position to make clockwise rotation positive
     global last_position
     position = -encoder.position
