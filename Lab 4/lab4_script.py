@@ -10,7 +10,7 @@ import adafruit_rgb_display.st7735 as st7735  # pylint: disable=unused-import
 import adafruit_rgb_display.ssd1351 as ssd1351  # pylint: disable=unused-import
 import adafruit_rgb_display.ssd1331 as ssd1331  # pylint: disable=unused-import
 import adafruit_ssd1306
-import qwiic
+import qwiic_proximity
 import adafruit_mpr121
 from adafruit_apds9960.apds9960 import APDS9960
 from adafruit_apds9960 import colorutility
@@ -76,7 +76,10 @@ i2c = busio.I2C(board.SCL, board.SDA)
 # apds.enable_color = True
 
 # prox setup
-ToF = qwiic.QwiicVL53L1X(i2c)
+oProx = qwiic_proximity.QwiicProximity()
+if oProx.connected == False:
+    time.sleep(0.05)
+oProx.begin()
 
 # joystick setup
 myJoystick = qwiic_joystick.QwiicJoystick(i2c)
@@ -181,18 +184,12 @@ def joystick():
         return False
 
 def prox_sensor():
-    ToF.sensor_init()
-    ToF.start_ranging()
-    while not ToF.data_ready():
-        time.sleep(0.5)
-        pass
-    distance = ToF.get_distance()
-    ToF.clear_interrupt()
-    ToF.stop_ranging()
-    if distance > 200:
-        return True
-    else:
+    distance_mm = oProx.get_distance()
+    if distance_mm == 0:  # no valid reading
         return False
+    distance_cm = distance_mm / 10.0
+    return distance_cm <= 15.0
+
 
 def light_sensor():
     return False
