@@ -2,7 +2,7 @@ from digitalio import DigitalInOut
 import busio
 import board
 import time
-from PIL import Image, ImageDraw
+from PIL import Image, ImageDraw, ImageFont
 import adafruit_rgb_display.ili9341 as ili9341
 import adafruit_rgb_display.st7789 as st7789  # pylint: disable=unused-import
 import adafruit_rgb_display.hx8357 as hx8357  # pylint: disable=unused-import
@@ -87,6 +87,7 @@ myJoystick.begin()
 
 # oled setup
 oled = adafruit_ssd1306.SSD1306_I2C(128, 32, i2c)
+font = ImageFont.load_default()
 # start with a blank screen
 oled.fill(0)
 oled.show()
@@ -129,40 +130,46 @@ def display(image_name):
     # Display image.
     disp.image(image)
 
+
 def draw_hp_bar(hp: int, max_hp: int = 5):
     """
-    Draws an HP bar with 'hp' filled blocks and 'max_hp' total blocks.
-    Each block is a filled rectangle separated by a dark line.
+    Draw an HP bar with 'hp' filled blocks and 'max_hp' total blocks.
     """
-    oled.fill(0)  # clear screen first
+    # Create a blank image for drawing
+    image = Image.new("1", (oled.width, oled.height))
+    draw = ImageDraw.Draw(image)
 
     # Draw "HP" text
-    oled.text("HP", 0, 10, 1)
+    draw.text((0, 10), "HP", font=font, fill=1)
 
-    # Define block layout
-    block_width = 18  # width of each HP block
-    block_height = 10  # height of each HP block
-    spacing = 2  # space between blocks
-    start_x = 30  # where to start drawing blocks (after "HP")
+    # Define HP bar layout
+    block_width = 18
+    block_height = 10
+    spacing = 2
+    start_x = 30
     start_y = 10
 
-    # Draw filled HP blocks
+    # Draw filled / empty HP blocks
     for i in range(max_hp):
         x = start_x + i * (block_width + spacing)
         if i < hp:
-            oled.fill_rect(x, start_y, block_width, block_height, 1)  # filled
+            draw.rectangle([x, start_y, x + block_width, start_y + block_height], fill=1)
         else:
-            oled.rect(x, start_y, block_width, block_height, 1)  # empty outline
+            draw.rectangle([x, start_y, x + block_width, start_y + block_height], outline=1)
 
+    # Push the image to the display
+    oled.image(image)
     oled.show()
 
-def display_text(text):
+def display_text(text: str):
     """
     Display a single line of text on the OLED.
     """
-    oled.fill(0)           # clear screen
-    oled.text(text, 0, 10, 1)  # draw text at position (x=0, y=10)
-    oled.show()            # update display
+    image = Image.new("1", (oled.width, oled.height))
+    draw = ImageDraw.Draw(image)
+    draw.text((0, 10), text, font=font, fill=1)
+    oled.image(image)
+    oled.show()
 
 def joystick():
     # if |x - 512| + |y - 512| > 200 return True
