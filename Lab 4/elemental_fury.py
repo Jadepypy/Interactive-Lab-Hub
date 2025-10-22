@@ -283,4 +283,3 @@ while True:
 
     if hp == 0:
             display("skeleton.png")
-
