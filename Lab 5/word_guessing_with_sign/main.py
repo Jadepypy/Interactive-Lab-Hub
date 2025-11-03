@@ -112,8 +112,8 @@ backlight.value = True
 
 # ↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓
 # Simulated camera() function (replace with your actual camera input)
-def camera():
-    return input("Enter a letter: ").strip().lower()
+#def camera():
+#    return input("Enter a letter: ").strip().lower()
 
 
 # ↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑
@@ -180,11 +180,11 @@ def hangman():
 
     while count < max_wrong and "_" in guessed:
         guess = camera()
-
-        if len(guess) != 1 or not guess.isalpha():
+        if not guess or len(guess) != 1 or not guess.isalpha():
             piscreen_display("Invalid input.\nEnter a\nsingle letter.")
             continue
 
+        print(guess)
         if guess in word:
             for i, ch in enumerate(word):
                 if ch == guess:

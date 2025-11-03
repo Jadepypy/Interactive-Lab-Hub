@@ -72,14 +72,14 @@ def camera(duration=5):
             x2 = int(max(x_) * W) - 10
             y2 = int(max(y_) * H) - 10
 
-            prediction = model.predict([np.asarray(data_aux)])
+            prediction = model.predict([np.asarray(data_aux)[:42]])
             letter = str(prediction[0])
 
             cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 0, 0), 4)
             cv2.putText(frame,letter, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 1.3, (0, 0, 0), 3,
                         cv2.LINE_AA)
 
-        print(letter)
+        #print(letter)
         if letter and letter == last_letter:
             # continuing the same sign
             if stable_start is None:
@@ -90,7 +90,7 @@ def camera(duration=5):
         else:
             stable_start = None
         
-        print(letter_counts)
+        #print(letter_counts)
         last_letter = letter
         cv2.imshow('frame', frame)
 
@@ -108,7 +108,7 @@ def camera(duration=5):
 
     # return the letter shown most consistently
     best_letter = max(letter_counts, key=letter_counts.get)
-    print(f"Detected letter: {best_letter}")
+    #print(f"Detected letter: {best_letter}")
     return best_letter
 
 
