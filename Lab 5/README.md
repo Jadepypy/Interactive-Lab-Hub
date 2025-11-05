@@ -1,3 +1,4 @@
+Team Members: jc3828 Junxiong Chen, cc2952 Chiahsuan Chang
 # Part C
 
 The user plays a word-guessing game (hangman) on the Raspberry Pi.
