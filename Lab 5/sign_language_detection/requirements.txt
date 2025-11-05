@@ -1,0 +1,5 @@
+mediapipe==0.10.18
+opencv-python==4.11.0.86
+
+
+# /home/pi/.cache/kagglehub/datasets/iamavinashkr090502/asl-hand-landmark-and-gesture-dataset/versions/1
