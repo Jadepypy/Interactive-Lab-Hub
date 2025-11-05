@@ -72,6 +72,8 @@ User Feedback (Summary)
 4. Run the main application `main.py`
    Game logic in `main.py`, sign detection in `sign_detector.py`
 
+References:
+https://github.com/computervisioneng/sign-language-detector-python
 Video Demos:
 https://drive.google.com/file/d/1SW5_jm0X6H_66JZrcg_LkmduQ3dNAiSn/view?usp=sharing
 https://drive.google.com/file/d/1n7s3EWm2OHqjuYbMLcpwIdFZQUA4my1I/view?usp=sharing
