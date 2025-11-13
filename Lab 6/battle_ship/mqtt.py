@@ -18,11 +18,11 @@ event_queue = queue.Queue()
 
 def on_connect(client, userdata, flags, rc):
     if rc == 0:
-        print(f'✓ Connected to {MQTT_BROKER}:{MQTT_PORT}')
+        print(f'Connected to {MQTT_BROKER}:{MQTT_PORT}')
         client.subscribe(MQTT_TOPIC)
-        print(f'✓ Subscribed to topic: {MQTT_TOPIC}')
+        print(f'Subscribed to topic: {MQTT_TOPIC}')
     else:
-        print(f'✗ MQTT connection failed: {rc}')
+        print(f'MQTT connection failed: {rc}')
 
 def on_message(client, userdata, msg):
     global latest_message
@@ -67,7 +67,7 @@ def start_mqtt():
         print('MQTT bridge started.')
         return True
     except Exception as e:
-        print(f'⚠️ MQTT failed to start: {e}')
+        print(f'MQTT failed to start: {e}')
         return False
 
 def stop_mqtt():
@@ -82,7 +82,7 @@ def send_message(payload):
     """Send any message to the unified topic."""
     global mqtt_client
     if not mqtt_client:
-        print('⚠️ MQTT not running')
+        print('MQTT not running')
         return False
     try:
         mqtt_client.publish(MQTT_TOPIC, json.dumps(payload), qos=1)
