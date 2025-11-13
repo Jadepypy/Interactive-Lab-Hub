@@ -39,7 +39,7 @@ def on_message(client, userdata, msg):
             event_queue.put_nowait(data)
         except queue.Full:
             pass
-        print(f'→ Received: {data}')
+        print(f'Received: {data}')
     except Exception as e:
         print(f'Error in on_message: {e}')
 
