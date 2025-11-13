@@ -56,7 +56,7 @@ draw = ImageDraw.Draw(image)
 
 font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 22)
 
-
+IS_HOST = True
 def wait_for_touch():
     print("Touch a pad to choose ROW...")
     row_chosen = False
@@ -223,15 +223,44 @@ draw_square('C2', 40)
 draw_square('C3', 40)
 draw_square('C4', 40)
 
-gameplay = True
-while gameplay:
-    print("Waiting for turn...")
-    msg = mqtt.wait_for_message()
-    if msg and msg.get("action") == "end":
-        print("Game over — you lost!")
-        display("defeat.png")
-        break
+if IS_HOST:
+    print("You are the host. Starting the game...")
+    mqtt.send_message({"action": "start"})
+else:
+    print("You are the client. Waiting for the host to start...")
 
+gameplay = True
+turn = IS_HOST  # host starts first
+
+while gameplay:
+    if not turn:
+        print("Waiting for opponent...")
+        msg = mqtt.wait_for_message()
+        if not msg:
+            continue
+
+        action = msg.get("action")
+
+        if action == "start":
+            print("Game started! Your turn.")
+            turn = True
+
+        elif action == "hit":
+            print(f"Opponent hit {msg.get('cell')} ({msg.get('ship', '')})!")
+            turn = True  # your turn now
+
+        elif action == "miss":
+            print(f"Opponent missed at {msg.get('cell')}.")
+            turn = True  # your turn now
+
+        elif action == "end":
+            print("Game over — you lost!")
+            display("defeat.png")
+            break
+
+        continue  # go back to loop
+
+        # --- your turn ---
     print("Your turn!")
     guess = wait_for_touch()
     hit, ship = check_hit(guess, ships)
@@ -243,7 +272,7 @@ while gameplay:
         draw_cross(guess, 40)
         mqtt.send_message({"action": "miss", "cell": guess})
 
-    # Check victory
+    # --- check for victory ---
     all_cells = sum(len(v) for v in ships.values())
     if all_cells == 0:
         print("You win!")
@@ -251,5 +280,8 @@ while gameplay:
         mqtt.send_message({"action": "end"})
         gameplay = False
         break
+
+    # end of your turn, now opponent’s turn
+    turn = False
 
 mqtt.stop_mqtt()
