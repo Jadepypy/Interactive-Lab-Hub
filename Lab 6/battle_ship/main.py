@@ -3,6 +3,7 @@ import time
 import subprocess
 import digitalio
 import board
+import mqtt
 from PIL import Image, ImageDraw, ImageFont
 import adafruit_rgb_display.st7789 as st7789
 import busio
@@ -224,33 +225,31 @@ draw_square('C4', 40)
 
 gameplay = True
 while gameplay:
-    '''
-    turn = read_turn()
-    status = read_status()
-    if status == "lose":
-        print("You lose!")
-        display("skeleton.png")
-        gameplay = False
-        '''
-    turn = True  # to make the game continue for now, comment it if server implemrnted
-    print("Another try...")
-    while turn:
-        guess = wait_for_touch()
-        if not guess:
-            continue
+    print("Waiting for turn...")
+    msg = mqtt.wait_for_message()
+    if msg and msg.get("action") == "end":
+        print("Game over — you lost!")
+        display("defeat.png")
+        break
 
-        hit, ship = check_hit(guess, ships)
-        if hit:
-            turn = True
-            draw_word(ship, guess)
-            all_cells = sum(len(v) for v in ships.values())
-            if all_cells == 0:
-                print("You win!")
-                display("victory.png")
-                '''send_status("end_game")'''
-                gameplay = False
-                break
-        else:
-            turn = False
-            draw_cross(guess, 40)
-            '''send_turn("opponent")'''
+    print("Your turn!")
+    guess = wait_for_touch()
+    hit, ship = check_hit(guess, ships)
+
+    if hit:
+        draw_word(ship, guess)
+        mqtt.send_message({"action": "hit", "cell": guess, "ship": ship})
+    else:
+        draw_cross(guess, 40)
+        mqtt.send_message({"action": "miss", "cell": guess})
+
+    # Check victory
+    all_cells = sum(len(v) for v in ships.values())
+    if all_cells == 0:
+        print("You win!")
+        display("victory.png")
+        mqtt.send_message({"action": "end"})
+        gameplay = False
+        break
+
+mqtt.stop_mqtt()
