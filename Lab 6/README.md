@@ -102,6 +102,9 @@ Through this project, we got hands-on experience building a multiplayer game acr
 
 One thing to note is that because this is a two-player game, the setup cannot be completely symmetric. If both Pis try to start as “host” or “client” at the same time, the game will hang or fail to start. To handle this, we use an environment variable (or a simple configuration flag) to decide which Pi is the host and who takes the first turn. This ensures the game always starts correctly and both devices stay in sync.
 
+# User Feedback
+We did not test the game with people outside our team, so we only have our own impressions. Playing it ourselves, we found the turn synchronization mostly worked, but sometimes the display updates were slow or confusing. We also noticed that hitting the wrong cells felt a bit unclear without better visual feedback. Overall, it was a useful experience in managing two devices, using MQTT, and designing a playable interface, but external testing would help identify real usability issues.
+
 
 
 <details>
