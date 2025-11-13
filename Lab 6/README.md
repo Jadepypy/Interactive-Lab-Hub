@@ -87,6 +87,13 @@ Legend:
 	•	X → Miss
 ```
 
+## Videos
+[Waiting for event](https://drive.google.com/file/d/1caxutPKolDBzbmR787EIQ7XXxEGbfHXk/view?usp=sharing)
+
+[Victory, all ships taken down](https://drive.google.com/file/d/1caxutPKolDBzbmR787EIQ7XXxEGbfHXk/view?usp=sharing)
+
+<img src="./grid.jpg" alt="Grid Screen" width="200">
+
 
 # Reflection on Learnings
 
