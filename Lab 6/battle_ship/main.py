@@ -223,9 +223,10 @@ draw_square('C2', 40)
 draw_square('C3', 40)
 draw_square('C4', 40)
 
+PLAYER_ID = "host" if IS_HOST else "client"
 if IS_HOST:
     print("You are the host. Starting the game...")
-    mqtt.send_message({"action": "start"})
+    mqtt.send_message({"action": "start", "player": PLAYER_ID})
 else:
     print("You are the client. Waiting for the host to start...")
 
@@ -238,6 +239,8 @@ while gameplay:
         msg = mqtt.wait_for_message()
         if not msg:
             continue
+        if "sender" in msg and msg["sender"] == PLAYER_ID:
+            continue  # ignore own messages
 
         action = msg.get("action")
 
@@ -267,17 +270,17 @@ while gameplay:
 
     if hit:
         draw_word(ship, guess)
-        mqtt.send_message({"action": "hit", "cell": guess, "ship": ship})
+        mqtt.send_message({"action": "hit", "cell": guess, "ship": ship, "sender": PLAYER_ID})
     else:
         draw_cross(guess, 40)
-        mqtt.send_message({"action": "miss", "cell": guess})
+        mqtt.send_message({"action": "miss", "cell": guess, "sender": PLAYER_ID})
 
     # --- check for victory ---
     all_cells = sum(len(v) for v in ships.values())
     if all_cells == 0:
         print("You win!")
         display("victory.png")
-        mqtt.send_message({"action": "end"})
+        mqtt.send_message({"action": "end", "sender": PLAYER_ID})
         gameplay = False
         break
 
