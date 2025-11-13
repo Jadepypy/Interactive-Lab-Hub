@@ -223,6 +223,7 @@ draw_square('C2', 40)
 draw_square('C3', 40)
 draw_square('C4', 40)
 
+mqtt.start_mqtt()
 PLAYER_ID = "host" if IS_HOST else "client"
 if IS_HOST:
     print("You are the host. Starting the game...")
