@@ -233,6 +233,8 @@ else:
 gameplay = True
 turn = IS_HOST  # host starts first
 
+# memorize guess to avoid repeated guesses
+guessed_cells = set()
 while gameplay:
     if not turn:
         print("Waiting for opponent...")
@@ -266,6 +268,10 @@ while gameplay:
         # --- your turn ---
     print("Your turn!")
     guess = wait_for_touch()
+    while guess in guessed_cells:
+        print("You already guessed that cell. Choose another one.")
+        guess = wait_for_touch()
+    guessed_cells.add(guess)
     hit, ship = check_hit(guess, ships)
 
     if hit:
