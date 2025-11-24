@@ -7,78 +7,100 @@ import itertools
 CORNER_CLUSTER_DIST = 50  # Max dist to group dots into a corner
 MIN_CARD_AREA = 10000  # Min area to be a valid card
 MAX_CARD_AREA = 120000  # Max area (prevent finding the whole table)
-ASPECT_RATIO_TOLERANCE = 0.4  # How much it can deviate from a square/rectangle
+ALIGNMENT_TOLERANCE = 0.90  # Dot product threshold (1.0 is perfect parallel)
 
 
 def get_dist(p1, p2):
     return math.hypot(p1[0] - p2[0], p1[1] - p2[1])
 
 
+def get_corner_alignment(cluster):
+    """
+    Analyzes a cluster of 3 dots to find the L-shape orientation.
+    Returns the two unit vectors representing the corner's edges.
+    """
+    p0, p1, p2 = cluster
+    # Calculate all 3 distances to find the hypotenuse
+    d01 = get_dist(p0, p1)
+    d12 = get_dist(p1, p2)
+    d20 = get_dist(p2, p0)
+
+    dists = [d01, d12, d20]
+    max_d = max(dists)
+
+    # The vertex is the point opposite the longest side (hypotenuse)
+    if max_d == d01:
+        vertex, end1, end2 = p2, p0, p1
+    elif max_d == d12:
+        vertex, end1, end2 = p0, p1, p2
+    else:
+        vertex, end1, end2 = p1, p2, p0
+
+    # Calculate Unit Vectors from Vertex to the two Ends
+    def get_vec(start, end):
+        vx = end[0] - start[0]
+        vy = end[1] - start[1]
+        mag = math.hypot(vx, vy)
+        if mag == 0: return (0, 0)
+        return (vx / mag, vy / mag)
+
+    v1 = get_vec(vertex, end1)
+    v2 = get_vec(vertex, end2)
+
+    return [v1, v2]
+
+
+def check_alignment(corner_vectors, edge_vector):
+    """
+    Checks if the edge_vector is parallel to EITHER of the corner's own alignment vectors.
+    """
+    ex, ey = edge_vector
+    # Normalize edge vector
+    mag = math.hypot(ex, ey)
+    if mag == 0: return False
+    ex, ey = ex / mag, ey / mag
+
+    for vx, vy in corner_vectors:
+        # Dot product: If parallel, dot is 1.0 or -1.0
+        dot = (ex * vx) + (ey * vy)
+        if abs(dot) > ALIGNMENT_TOLERANCE:
+            return True
+
+    return False
+
+
 def split_double_corner(points):
     """
-    If 6 dots are found together, it's likely two corners touching.
-    We split them based on the widest axis (horizontal or vertical).
+    Splits a group of 6 dots into two groups of 3 based on spatial spread.
     """
     pts = np.array(points)
-    # Find bounding box variance
     x_var = np.var(pts[:, 0])
     y_var = np.var(pts[:, 1])
 
-    # Sort and split based on the spread
     if x_var > y_var:
-        pts = pts[pts[:, 0].argsort()]  # Sort by X
+        pts = pts[pts[:, 0].argsort()]
     else:
-        pts = pts[pts[:, 1].argsort()]  # Sort by Y
+        pts = pts[pts[:, 1].argsort()]
 
-    # Split into two groups of 3
-    group1 = pts[:3]
-    group2 = pts[3:]
-
-    c1 = (int(np.mean(group1[:, 0])), int(np.mean(group1[:, 1])))
-    c2 = (int(np.mean(group2[:, 0])), int(np.mean(group2[:, 1])))
-    return [c1, c2]
+    return [pts[:3].tolist(), pts[3:].tolist()]
 
 
-def order_points(pts):
-    # Sort points to: top-left, top-right, bottom-right, bottom-left
-    rect = np.zeros((4, 2), dtype="float32")
+def order_corners_with_data(corners):
+    """
+    Sorts corners (which include alignment data) into TL, TR, BR, BL order.
+    """
+    # Extract just coordinates for sorting
+    pts = np.array([(c['x'], c['y']) for c in corners], dtype="float32")
+
     s = pts.sum(axis=1)
-    rect[0] = pts[np.argmin(s)]
-    rect[2] = pts[np.argmax(s)]
+    tl = corners[np.argmin(s)]
+    br = corners[np.argmax(s)]
+
     diff = np.diff(pts, axis=1)
-    rect[1] = pts[np.argmin(diff)]
-    rect[3] = pts[np.argmax(diff)]
-    return rect
+    tr = corners[np.argmin(diff)]
+    bl = corners[np.argmax(diff)]
 
-
-def is_valid_rectangle(corners):
-    """
-    Checks if 4 points form a valid rectangle.
-    """
-    pts = np.array(corners, dtype="float32")
-    rect = order_points(pts)
-    (tl, tr, br, bl) = rect
-
-    # 1. Check Dimensions
-    widthA = np.sqrt(((br[0] - bl[0]) ** 2) + ((br[1] - bl[1]) ** 2))
-    widthB = np.sqrt(((tr[0] - tl[0]) ** 2) + ((tr[1] - tl[1]) ** 2))
-    heightA = np.sqrt(((tr[0] - br[0]) ** 2) + ((tr[1] - br[1]) ** 2))
-    heightB = np.sqrt(((tl[0] - bl[0]) ** 2) + ((tl[1] - bl[1]) ** 2))
-
-    max_w = max(int(widthA), int(widthB))
-    max_h = max(int(heightA), int(heightB))
-
-    # Area Check
-    area = max_w * max_h
-    if area < MIN_CARD_AREA or area > MAX_CARD_AREA:
-        return False, None
-
-    # 2. Check Parallelism / Aspect Ratio consistency
-    # (Simple check: Opposite sides should be roughly equal length)
-    if abs(widthA - widthB) > 30 or abs(heightA - heightB) > 30:
-        return False, None
-
-    return True, rect
+    return [tl, tr, br, bl]
 
 
 def main():
@@ -87,8 +109,7 @@ def main():
         print("Cannot open camera")
         exit()
 
-    print("Multi-Card Detection Started.")
-    print("Looking for groups of 4 corners...")
+    print("Strict Alignment Detection Started.")
 
     while True:
         ret, frame = cap.read()
@@ -98,7 +119,7 @@ def main():
         thresh = cv.adaptiveThreshold(gray, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C,
                                       cv.THRESH_BINARY_INV, 11, 2)
 
-        # 1. Find raw dots
+        # 1. Find Raw Dots
         contours, _ = cv.findContours(thresh, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE)
         all_dots = []
 
@@ -115,11 +136,10 @@ def main():
                 if M["m00"] != 0:
                     cx = int(M["m10"] / M["m00"])
                     cy = int(M["m01"] / M["m00"])
-                    all_dots.append([cx, cy])
+                    all_dots.append((cx, cy))
 
-        # 2. Cluster dots into Corners
-        # Simple distance grouping
-        corners = []
+        # 2. Cluster Dots into Valid Corners
+        valid_corners = []  # Will store dicts: {'x':_, 'y':_, 'vectors':_}
         processed = [False] * len(all_dots)
 
         for i in range(len(all_dots)):
@@ -128,7 +148,6 @@ def main():
             cluster = [all_dots[i]]
             processed[i] = True
 
-            # Find neighbors
             for j in range(i + 1, len(all_dots)):
                 if not processed[j]:
                     dist = get_dist(all_dots[i], all_dots[j])
@@ -136,48 +155,81 @@ def main():
                         cluster.append(all_dots[j])
                         processed[j] = True
 
-            # Analyze Cluster
-            # Exact corner = 3 dots
+            # Process Clusters
+            final_clusters = []
+
             if len(cluster) == 3:
-                avg_x = int(sum(p[0] for p in cluster) / 3)
-                avg_y = int(sum(p[1] for p in cluster) / 3)
-                corners.append((avg_x, avg_y))
-                cv.circle(frame, (avg_x, avg_y), 10, (255, 255, 0), 2)  # Blue Circle = Corner
-
-            # Double corner (Touching cards) = 6 dots
+                final_clusters.append(cluster)
             elif len(cluster) >= 5 and len(cluster) <= 7:
-                split_corners = split_double_corner(cluster)
-                corners.extend(split_corners)
-                for sc in split_corners:
-                    cv.circle(frame, sc, 10, (0, 255, 255), 2)  # Yellow Circle = Split Corner
+                # Detected two corners touching
+                final_clusters.extend(split_double_corner(cluster))
 
-        # 3. Find Rectangles (Combinations of 4 corners)
-        # Only run if we have enough corners for at least one card
-        if len(corners) >= 4:
-            # If we have too many corners (e.g. noise), limit checks to prevent lag
-            # 12 corners = 495 combinations (Fast). 20 corners = 4845 (Okay).
-            if len(corners) > 16:
-                corners = corners[:16]
+            # Analyze each valid 3-dot cluster
+            for c_pts in final_clusters:
+                if len(c_pts) != 3: continue
 
-                # Check every combination of 4 corners
-            for quad in itertools.combinations(corners, 4):
-                is_valid, rect_points = is_valid_rectangle(quad)
+                # Center of the corner
+                avg_x = int(sum(p[0] for p in c_pts) / 3)
+                avg_y = int(sum(p[1] for p in c_pts) / 3)
 
-                if is_valid:
-                    # Draw the card boundary
-                    box = np.int32(rect_points)
-                    cv.drawContours(frame, [box], 0, (0, 255, 0), 3)
+                # Get L-shape alignment
+                vectors = get_corner_alignment(c_pts)
 
-                    # Label
-                    M = cv.moments(box)
-                    if M["m00"] != 0:
-                        cx = int(M["m10"] / M["m00"])
-                        cy = int(M["m01"] / M["m00"])
-                        cv.putText(frame, "Card", (cx - 20, cy), cv.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
+                valid_corners.append({
+                    'x': avg_x,
+                    'y': avg_y,
+                    'vectors': vectors
+                })
 
-        cv.imshow('Multi-Card Detection', frame)
-        # cv.imshow('Thresh', thresh) # Uncomment to debug dot detection
+                # Debug: Draw Corner and its alignment lines
+                cv.circle(frame, (avg_x, avg_y), 5, (255, 255, 0), -1)
+                # Draw short red lines indicating the detected orientation
+                end_x1 = int(avg_x + vectors[0][0] * 20)
+                end_y1 = int(avg_y + vectors[0][1] * 20)
+                cv.line(frame, (avg_x, avg_y), (end_x1, end_y1), (0, 0, 255), 2)
 
+        # 3. Find Cards (Combinations of 4 Corners)
+        if len(valid_corners) >= 4:
+            # Limit to 16 corners to maintain FPS
+            if len(valid_corners) > 16: valid_corners = valid_corners[:16]
+
+            for quad in itertools.combinations(valid_corners, 4):
+                # 3a. Geometric Sort (TL, TR, BR, BL)
+                sorted_quad = order_corners_with_data(quad)
+                tl, tr, br, bl = sorted_quad
+
+                # 3b. ALIGNMENT CHECK (The New Filter)
+                # Check Top Edge (TL -> TR)
+                top_edge_vec = (tr['x'] - tl['x'], tr['y'] - tl['y'])
+                if not check_alignment(tl['vectors'], top_edge_vec): continue
+
+                # Check Left Edge (TL -> BL)
+                left_edge_vec = (bl['x'] - tl['x'], bl['y'] - tl['y'])
+                if not check_alignment(tl['vectors'], left_edge_vec): continue
+
+                # If we passed those checks, the shape is aligned with the dots!
+                # Now we do the standard rectangle/area check
+
+                width = get_dist((tl['x'], tl['y']), (tr['x'], tr['y']))
+                height = get_dist((tl['x'], tl['y']), (bl['x'], bl['y']))
+                area = width * height
+
+                if area < MIN_CARD_AREA or area > MAX_CARD_AREA: continue
+
+                # Draw Valid Card
+                box = np.array([
+                    [tl['x'], tl['y']], [tr['x'], tr['y']],
+                    [br['x'], br['y']], [bl['x'], bl['y']]
+                ], dtype="int32")
+
+                cv.drawContours(frame, [box], 0, (0, 255, 0), 3)
+
+                # Label center
+                cx = int((tl['x'] + br['x']) / 2)
+                cy = int((tl['y'] + br['y']) / 2)
+                cv.putText(frame, "ID Ready", (cx - 40, cy), cv.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
+
+        cv.imshow('Strict Alignment', frame)
         if cv.waitKey(1) == ord('q'):
             break
 
