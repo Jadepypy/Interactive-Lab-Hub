@@ -1,106 +1,78 @@
 import cv2 as cv
 import numpy as np
 import math
-import itertools
 
 # --- CONFIGURATION ---
-CORNER_CLUSTER_DIST = 50  # Max dist to group dots into a corner
-MIN_CARD_AREA = 10000  # Min area to be a valid card
-MAX_CARD_AREA = 120000  # Max area (prevent finding the whole table)
-ALIGNMENT_TOLERANCE = 0.90  # Dot product threshold (1.0 is perfect parallel)
+DOT_SIZE_MIN = 20
+DOT_SIZE_MAX = 2000
+CLUSTER_DIST = 60  # Max distance between dots to form a corner
+CARD_MIN_WIDTH = 50  # Min pixel width of a card
+CARD_MAX_WIDTH = 600
+CARD_MIN_HEIGHT = 50
+CARD_MAX_HEIGHT = 600
 
 
 def get_dist(p1, p2):
     return math.hypot(p1[0] - p2[0], p1[1] - p2[1])
 
 
-def get_corner_alignment(cluster):
+def get_angle(v1, v2):
+    """ Returns the angle between two vectors in degrees. """
+    dot = v1[0] * v2[0] + v1[1] * v2[1]
+    mag1 = math.hypot(v1[0], v1[1])
+    mag2 = math.hypot(v2[0], v2[1])
+    if mag1 == 0 or mag2 == 0: return 0
+    # Clip to handle floating point errors slightly outside -1,1
+    cos_angle = np.clip(dot / (mag1 * mag2), -1.0, 1.0)
+    return math.degrees(math.acos(cos_angle))
+
+
+def classify_corner_shape(cluster):
     """
-    Analyzes a cluster of 3 dots to find the L-shape orientation.
-    Returns the two unit vectors representing the corner's edges.
+    Takes 3 points.
+    1. Identifies the Vertex (the dot with the 90-degree angle).
+    2. Determines orientation (TL, TR, BR, BL) based on where the 'arms' point.
+    Returns: (CornerType, VertexPoint) or (None, None)
     """
     p0, p1, p2 = cluster
-    # Calculate all 3 distances to find the hypotenuse
+
+    # Calculate distances to find hypotenuse (longest side)
     d01 = get_dist(p0, p1)
     d12 = get_dist(p1, p2)
     d20 = get_dist(p2, p0)
 
-    dists = [d01, d12, d20]
-    max_d = max(dists)
+    # The vertex is opposite the longest side
+    sides = [(d12, p0, p1, p2), (d20, p1, p0, p2), (d01, p2, p0, p1)]
+    sides.sort(key=lambda x: x[0])  # Sort by length, hypotenuse last
 
-    # The vertex is the point opposite the longest side (hypotenuse)
-    if max_d == d01:
-        vertex, end1, end2 = p2, p0, p1
-    elif max_d == d12:
-        vertex, end1, end2 = p0, p1, p2
-    else:
-        vertex, end1, end2 = p1, p2, p0
+    hypotenuse, vertex, arm1, arm2 = sides[2]
 
-    # Calculate Unit Vectors from Vertex to the two Ends
-    def get_vec(start, end):
-        vx = end[0] - start[0]
-        vy = end[1] - start[1]
-        mag = math.hypot(vx, vy)
-        if mag == 0: return (0, 0)
-        return (vx / mag, vy / mag)
+    # Check if it's roughly 90 degrees
+    vec1 = (arm1[0] - vertex[0], arm1[1] - vertex[1])
+    vec2 = (arm2[0] - vertex[0], arm2[1] - vertex[1])
 
-    v1 = get_vec(vertex, end1)
-    v2 = get_vec(vertex, end2)
+    angle = get_angle(vec1, vec2)
+    if angle < 70 or angle > 110:  # Allow some tolerance
+        return None, None
 
-    return [v1, v2]
+    # Determine Orientation using the Vector Sum (Diagonal direction)
+    # Note: Image Y is Positive DOWN
+    diag_x = vec1[0] + vec2[0]
+    diag_y = vec1[1] + vec2[1]
 
+    # Simple axis-aligned logic (robust for rotation +/- 45 deg)
+    corner_type = None
 
-def check_alignment(corner_vectors, edge_vector):
-    """
-    Checks if the edge_vector is parallel to EITHER of the corner's own alignment vectors.
-    """
-    ex, ey = edge_vector
-    # Normalize edge vector
-    mag = math.hypot(ex, ey)
-    if mag == 0: return False
-    ex, ey = ex / mag, ey / mag
+    if diag_x > 0 and diag_y > 0:
+        corner_type = "TL"  # Pointing Right and Down -> Top Left Corner
+    elif diag_x < 0 and diag_y > 0:
+        corner_type = "TR"  # Pointing Left and Down -> Top Right Corner
+    elif diag_x < 0 and diag_y < 0:
+        corner_type = "BR"  # Pointing Left and Up -> Bottom Right Corner
+    elif diag_x > 0 and diag_y < 0:
+        corner_type = "BL"  # Pointing Right and Up -> Bottom Left Corner
 
-    for vx, vy in corner_vectors:
-        # Dot product: If parallel, dot is 1.0 or -1.0
-        dot = (ex * vx) + (ey * vy)
-        if abs(dot) > ALIGNMENT_TOLERANCE:
-            return True
-
-    return False
-
-
-def split_double_corner(points):
-    """
-    Splits a group of 6 dots into two groups of 3 based on spatial spread.
-    """
-    pts = np.array(points)
-    x_var = np.var(pts[:, 0])
-    y_var = np.var(pts[:, 1])
-
-    if x_var > y_var:
-        pts = pts[pts[:, 0].argsort()]
-    else:
-        pts = pts[pts[:, 1].argsort()]
-
-    return [pts[:3].tolist(), pts[3:].tolist()]
-
-
-def order_corners_with_data(corners):
-    """
-    Sorts corners (which include alignment data) into TL, TR, BR, BL order.
-    """
-    # Extract just coordinates for sorting
-    pts = np.array([(c['x'], c['y']) for c in corners], dtype="float32")
-
-    s = pts.sum(axis=1)
-    tl = corners[np.argmin(s)]
-    br = corners[np.argmax(s)]
-
-    diff = np.diff(pts, axis=1)
-    tr = corners[np.argmin(diff)]
-    bl = corners[np.argmax(diff)]
-
-    return [tl, tr, br, bl]
+    return corner_type, vertex
 
 
 def main():
@@ -109,7 +81,7 @@ def main():
         print("Cannot open camera")
         exit()
 
-    print("Strict Alignment Detection Started.")
+    print("Pattern Matching Started. Looking for TL, TR, BR, BL L-shapes...")
 
     while True:
         ret, frame = cap.read()
@@ -119,13 +91,12 @@ def main():
         thresh = cv.adaptiveThreshold(gray, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C,
                                       cv.THRESH_BINARY_INV, 11, 2)
 
-        # 1. Find Raw Dots
+        # 1. Detect Raw Dots
         contours, _ = cv.findContours(thresh, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE)
         all_dots = []
-
         for cnt in contours:
             area = cv.contourArea(cnt)
-            if area < 20 or area > 2000: continue
+            if area < DOT_SIZE_MIN or area > DOT_SIZE_MAX: continue
 
             perimeter = cv.arcLength(cnt, True)
             if perimeter == 0: continue
@@ -138,98 +109,82 @@ def main():
                     cy = int(M["m01"] / M["m00"])
                     all_dots.append((cx, cy))
 
-        # 2. Cluster Dots into Valid Corners
-        valid_corners = []  # Will store dicts: {'x':_, 'y':_, 'vectors':_}
-        processed = [False] * len(all_dots)
+        # 2. Identify L-Shapes (Corners)
+        corners = {"TL": [], "TR": [], "BR": [], "BL": []}
+
+        # Naive clustering: Find groups of 3
+        # In a real scenario with many dots, KD-Tree is faster, but this is fine for ~50 dots
+        used_dots = [False] * len(all_dots)
 
         for i in range(len(all_dots)):
-            if processed[i]: continue
+            if used_dots[i]: continue
 
+            # Find neighbors
             cluster = [all_dots[i]]
-            processed[i] = True
-
             for j in range(i + 1, len(all_dots)):
-                if not processed[j]:
-                    dist = get_dist(all_dots[i], all_dots[j])
-                    if dist < CORNER_CLUSTER_DIST:
-                        cluster.append(all_dots[j])
-                        processed[j] = True
+                if not used_dots[j] and get_dist(all_dots[i], all_dots[j]) < CLUSTER_DIST:
+                    cluster.append(all_dots[j])
 
-            # Process Clusters
-            final_clusters = []
-
+            # Check if it's a triad (L-Shape)
             if len(cluster) == 3:
-                final_clusters.append(cluster)
-            elif len(cluster) >= 5 and len(cluster) <= 7:
-                # Detected two corners touching
-                final_clusters.extend(split_double_corner(cluster))
+                c_type, vertex = classify_corner_shape(cluster)
+                if c_type:
+                    corners[c_type].append(vertex)
+                    # Mark dots as used so they aren't reused
+                    # (In complex overlaps, we might want to check all perms, but this assumes distinct spacing)
+                    # For now, just visualizing the detected corner vertex
+                    color_map = {"TL": (0, 255, 0), "TR": (255, 0, 0), "BR": (0, 0, 255), "BL": (0, 255, 255)}
+                    cv.circle(frame, vertex, 8, color_map[c_type], -1)
+                    cv.putText(frame, c_type, (vertex[0] - 10, vertex[1] - 10),
+                               cv.FONT_HERSHEY_SIMPLEX, 0.5, color_map[c_type], 2)
 
-            # Analyze each valid 3-dot cluster
-            for c_pts in final_clusters:
-                if len(c_pts) != 3: continue
+        # 3. Match Corners to Form Rectangles
+        # We iterate TLs and try to find matching TR, BL, BR
+        used_corners = {"TL": set(), "TR": set(), "BR": set(), "BL": set()}
 
-                # Center of the corner
-                avg_x = int(sum(p[0] for p in c_pts) / 3)
-                avg_y = int(sum(p[1] for p in c_pts) / 3)
+        for tl in corners["TL"]:
+            best_card = None
+            min_error = float('inf')
 
-                # Get L-shape alignment
-                vectors = get_corner_alignment(c_pts)
+            # Find TR (Should be to the RIGHT of TL, similar Y)
+            for tr in corners["TR"]:
+                if tr in used_corners["TR"]: continue
+                if tr[0] > tl[0] and abs(tr[1] - tl[1]) < 50:  # Check alignment
 
-                valid_corners.append({
-                    'x': avg_x,
-                    'y': avg_y,
-                    'vectors': vectors
-                })
+                    # Find BL (Should be BELOW TL, similar X)
+                    for bl in corners["BL"]:
+                        if bl in used_corners["BL"]: continue
+                        if bl[1] > tl[1] and abs(bl[0] - tl[0]) < 50:
 
-                # Debug: Draw Corner and its alignment lines
-                cv.circle(frame, (avg_x, avg_y), 5, (255, 255, 0), -1)
-                # Draw short red lines indicating the detected orientation
-                end_x1 = int(avg_x + vectors[0][0] * 20)
-                end_y1 = int(avg_y + vectors[0][1] * 20)
-                cv.line(frame, (avg_x, avg_y), (end_x1, end_y1), (0, 0, 255), 2)
+                            # Find BR (Should be RIGHT of BL and BELOW TR)
+                            for br in corners["BR"]:
+                                if br in used_corners["BR"]: continue
 
-        # 3. Find Cards (Combinations of 4 Corners)
-        if len(valid_corners) >= 4:
-            # Limit to 16 corners to maintain FPS
-            if len(valid_corners) > 16: valid_corners = valid_corners[:16]
+                                # Verify BR is roughly where expected
+                                expected_x = tr[0]
+                                expected_y = bl[1]
+                                dist_error = math.hypot(br[0] - expected_x, br[1] - expected_y)
 
-            for quad in itertools.combinations(valid_corners, 4):
-                # 3a. Geometric Sort (TL, TR, BR, BL)
-                sorted_quad = order_corners_with_data(quad)
-                tl, tr, br, bl = sorted_quad
+                                if dist_error < 50:  # Tolerance for "rectangular-ness"
+                                    # Found a valid quad!
+                                    # Draw it
+                                    cv.rectangle(frame, tl, br, (0, 255, 0), 3)
+                                    cv.line(frame, tl, br, (0, 255, 0), 1)
+                                    cv.line(frame, tr, bl, (0, 255, 0), 1)
 
-                # 3b. ALIGNMENT CHECK (The New Filter)
-                # Check Top Edge (TL -> TR)
-                top_edge_vec = (tr['x'] - tl['x'], tr['y'] - tl['y'])
-                if not check_alignment(tl['vectors'], top_edge_vec): continue
+                                    # Mark as used
+                                    used_corners["TR"].add(tr)
+                                    used_corners["BL"].add(bl)
+                                    used_corners["BR"].add(br)
+                                    break  # Stop looking for BR
+                            else:
+                                continue  # Continue looking for BL
+                            break  # Stop looking for BL
+                    else:
+                        continue  # Continue looking for TR
+                    break  # Stop looking for TR
 
-                # Check Left Edge (TL -> BL)
-                left_edge_vec = (bl['x'] - tl['x'], bl['y'] - tl['y'])
-                if not check_alignment(tl['vectors'], left_edge_vec): continue
-
-                # If we passed those checks, the shape is aligned with the dots!
-                # Now we do the standard rectangle/area check
-
-                width = get_dist((tl['x'], tl['y']), (tr['x'], tr['y']))
-                height = get_dist((tl['x'], tl['y']), (bl['x'], bl['y']))
-                area = width * height
-
-                if area < MIN_CARD_AREA or area > MAX_CARD_AREA: continue
-
-                # Draw Valid Card
-                box = np.array([
-                    [tl['x'], tl['y']], [tr['x'], tr['y']],
-                    [br['x'], br['y']], [bl['x'], bl['y']]
-                ], dtype="int32")
-
-                cv.drawContours(frame, [box], 0, (0, 255, 0), 3)
-
-                # Label center
-                cx = int((tl['x'] + br['x']) / 2)
-                cy = int((tl['y'] + br['y']) / 2)
-                cv.putText(frame, "ID Ready", (cx - 40, cy), cv.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
-
-        cv.imshow('Strict Alignment', frame)
+        cv.imshow('Pattern Matching', frame)
         if cv.waitKey(1) == ord('q'):
             break
 
